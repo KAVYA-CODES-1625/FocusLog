@@ -723,4 +723,3 @@ init_db()
 if __name__ == "__main__":
     # Local development only. For deployment, use a production WSGI server and HTTPS.
     app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
-app.logger.info("Gemini model selected: %s", model)
