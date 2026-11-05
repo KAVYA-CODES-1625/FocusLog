@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ code }} | FocusLog</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <section class="panel">
+      <p class="eyebrow">FOCUSLOG</p>
+      <h1>{{ code }} — Garden path not found</h1>
+      <p>{{ message }}</p>
+      <a href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}">Return to FocusLog</a>
+    </section>
+  </main>
+</body>
+</html>

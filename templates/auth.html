@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ "Create account" if mode == "signup" else "Welcome back" }} · FocusLog</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-body">
+  <main class="auth-shell">
+    <section class="auth-art" aria-label="FocusLog introduction">
+      <a class="brand auth-brand" href="{{ url_for('login') }}"><span class="brand-mark">🌱</span> FocusLog</a>
+      <div class="art-copy">
+        <p class="eyebrow">YOUR PERSONAL GROWTH SPACE</p>
+        <h1>Small steps.<br><span>Real growth.</span></h1>
+        <p>Every focused minute helps you grow. Come nurture your little corner of the forest.</p>
+        <div class="art-garden" aria-hidden="true"><span>🌙</span><span>🌿</span><span class="big-plant">🪴</span><span>✨</span><span>🍃</span></div>
+        <p class="art-caption">A calmer way to build consistency.</p>
+      </div>
+      <div class="auth-art-footer">FOCUSLOG · POWERED BY GROWLY</div>
+    </section>
+    <section class="auth-panel">
+      <div class="auth-card">
+        <p class="eyebrow">{{ "LET'S GROW TOGETHER" if mode == "signup" else "YOUR GARDEN IS WAITING" }}</p>
+        <h2>{{ "Create your account" if mode == "signup" else "Welcome back" }}</h2>
+        <p class="auth-subtitle">{{ "Start your own FocusLog journey." if mode == "signup" else "Sign in and pick up where you left off." }}</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-list" aria-live="polite">
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% if google_ready %}
+          <a class="google-button" href="{{ url_for('google_login') }}"><span class="google-g">G</span> Continue with Google</a>
+        {% else %}
+          <a class="google-button google-unconfigured" href="{{ url_for('google_login') }}"><span class="google-g">G</span> Continue with Google <small>setup needed</small></a>
+        {% endif %}
+        <div class="auth-divider"><span>or use your email</span></div>
+
+        <form method="post" class="auth-form">
+          {% if mode == "signup" %}
+            <label for="username">Your name</label>
+            <input id="username" name="username" type="text" minlength="2" maxlength="40" autocomplete="name" placeholder="What should we call you?" required>
+          {% endif %}
+          <label for="email">Email address</label>
+          <input id="email" name="email" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" required>
+          <label for="password">Password</label>
+          <div class="password-wrap">
+            <input id="password" name="password" type="password" minlength="{{ 8 if mode == 'signup' else 1 }}" autocomplete="{{ 'new-password' if mode == 'signup' else 'current-password' }}" placeholder="{{ 'At least 8 characters' if mode == 'signup' else 'Your password' }}" required>
+            <button type="button" class="show-password" aria-label="Show password" onclick="togglePassword()">Show</button>
+          </div>
+          {% if mode == "signup" %}
+            <label for="confirm_password">Confirm password</label>
+            <input id="confirm_password" name="confirm_password" type="password" minlength="8" autocomplete="new-password" placeholder="Enter it again" required>
+          {% else %}
+            <label class="remember-row"><input type="checkbox" name="remember"> <span>Keep me signed in</span></label>
+          {% endif %}
+          <button class="primary-button" type="submit">{{ "Create my account" if mode == "signup" else "Log in to FocusLog" }} <span>→</span></button>
+        </form>
+        <p class="auth-switch">
+          {{ "Already have an account?" if mode == "signup" else "New to FocusLog?" }}
+          <a href="{{ url_for('login' if mode == 'signup' else 'signup') }}">{{ "Log in" if mode == "signup" else "Create an account" }}</a>
+        </p>
+        <p class="privacy-note">🔒 Your garden and focus history belong to your account.</p>
+      </div>
+      <footer class="auth-footer">Made with curiosity and consistency 🌱</footer>
+    </section>
+  </main>
+<script>
+function togglePassword() {
+  const input = document.getElementById("password");
+  const button = document.querySelector(".show-password");
+  const showing = input.type === "text";
+  input.type = showing ? "password" : "text";
+  button.textContent = showing ? "Show" : "Hide";
+  button.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Environment variables and secrets
+.env
+.env.*
+
+# Keep the example configuration file
+!.env.example
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Local database and backups
+focuslog.db
+*.db
+focuslog_data_legacy_backup.json
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/

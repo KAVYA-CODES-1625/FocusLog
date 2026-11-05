@@ -1,0 +1,938 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusLog | Powered by Growly</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <header class="topbar">
+        <a href="/" class="brand">🌱 FocusLog</a>
+        <div class="topbar-user">
+            <span class="powered">powered by Growly</span>
+            <span class="user-greeting">Hi, {{ current_user.username }} 🌿</span>
+            <form action="{{ url_for('logout') }}" method="post" class="logout-form">
+                <button type="submit" class="logout-button">Log out</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="container">
+        <nav class="section-nav" aria-label="Main navigation">
+    <button class="nav-item active" data-section="dashboard"
+            aria-pressed="true">
+        🏡 Dashboard
+    </button>
+    <button class="nav-item" data-section="tasks"
+        aria-pressed="false">
+    ✅ My Tasks
+</button>
+
+    <button class="nav-item" data-section="timer"
+            aria-pressed="false">
+        ⏱️ Focus Timer
+    </button>
+
+    <button class="nav-item" data-section="coach"
+            aria-pressed="false">
+        🧠 Focus Coach
+    </button>
+
+    <button class="nav-item" data-section="achievements"
+        aria-pressed="false">
+    🏆 Achievements
+</button>
+
+    <button class="nav-item" data-section="progress"
+            aria-pressed="false">
+        📊 My Progress
+    </button>
+</nav>
+        <section class="welcome" data-view="dashboard">
+            <p class="eyebrow">YOUR PERSONAL GROWTH SPACE</p>
+            <h1>Small steps. <span>Real growth.</span></h1>
+            <p>Every focused minute helps you grow.</p>
+        </section>
+
+        <div class="dashboard-top-grid" data-view="dashboard">
+
+<section class="growth-card">
+                <div class="plant">
+                <span class="plant-emoji">{{ plant_emoji }}</span>
+                <div>
+                    <p class="eyebrow">YOUR GROWTH STAGE</p>
+                    <h2>{{ plant_name }}</h2>
+                    <p>{{ points }} growth points earned</p>
+                </div>
+            </div>
+
+            <div class="progress-info">
+                <span>Progress to next stage</span>
+                <span>{{ progress_percent }}%</span>
+            </div>
+
+            <div class="progress-track">
+                <div class="progress-fill"
+                     style="width: {{ progress_percent }}%"></div>
+            </div>
+
+            <p class="next-stage">
+    {% if next_stage_name %}
+        Next: {{ next_stage_name }} {{ next_stage_emoji }}
+    {% else %}
+        Maximum growth stage reached! 🌳
+    {% endif %}
+</p>
+        </section>
+
+        </section>
+
+<aside class="level-card">
+    <p class="eyebrow">YOUR XP JOURNEY</p>
+
+    <div class="level-ring"
+         style="--xp-progress: {{ level_xp }}%">
+        <div class="level-ring-inner">
+            <span>LEVEL</span>
+            <strong>{{ level }}</strong>
+        </div>
+    </div>
+
+    <h2>Level {{ level }}</h2>
+    <p>{{ level_xp }} / 100 XP earned</p>
+
+    <div class="level-progress-track">
+        <div class="level-progress-fill"
+             style="width: {{ level_xp }}%"></div>
+    </div>
+
+    <p class="level-next">
+        {{ xp_to_next_level }} XP to Level {{ level + 1 }}
+    </p>
+</aside>
+<section class="productivity-card">
+    <p class="eyebrow">YOUR DAILY PERFORMANCE</p>
+    <h2>Productivity Score</h2>
+    <p>Small steps add up to meaningful progress.</p>
+
+    <div class="productivity-score">
+        <strong>{{ productivity_score }}</strong>
+        <span>/ 100</span>
+    </div>
+
+    <p>{{ today_focus_minutes }} of 120 focus minutes completed today</p>
+
+    <div class="productivity-track">
+        <div class="productivity-fill"
+             style="width: {{ productivity_score }}%">
+        </div>
+    </div>
+</section>
+<section class="dashboard-tasks-card" data-view="dashboard">
+    <div class="dashboard-tasks-header">
+        <div>
+            <p class="eyebrow">STAY ON TRACK</p>
+            <h2>Today's Tasks</h2>
+            <p>Your next steps, all in one place.</p>
+        </div>
+
+        <button class="dashboard-view-all" data-section="tasks"
+                aria-pressed="false">
+            View All →
+        </button>
+    </div>
+
+    <div class="dashboard-task-list">
+        {% if tasks %}
+            {% for task in tasks[:3] %}
+                <article class="dashboard-task-item">
+                    <div>
+                        <h3>{{ task.title }}</h3>
+                        {% if task.subject %}
+                            <p>{{ task.subject }}</p>
+                        {% endif %}
+                    </div>
+                    <span>{{ task.status }}</span>
+                </article>
+            {% endfor %}
+        {% else %}
+            <p class="empty-tasks">
+                No tasks yet. Add your first task! 🌱
+            </p>
+        {% endif %}
+    </div>
+</section>
+
+</div>
+
+<section class="task-manager-card" data-view="tasks">
+    <div class="task-manager-header">
+        <div>
+            <p class="eyebrow">PLAN YOUR DAY</p>
+            <h2>My Tasks</h2>
+            <p>Turn your goals into small, achievable steps.</p>
+        </div>
+    </div>
+
+    <form action="{{ url_for('add_task') }}" method="POST"
+          class="task-form">
+
+        <input type="text" name="title"
+               placeholder="What do you need to do?"
+               maxlength="150" required>
+
+        <input type="text" name="subject"
+               placeholder="Subject (optional)">
+
+        <textarea name="description"
+                  placeholder="Add a short description (optional)"></textarea>
+
+        <div class="task-form-row">
+            <input type="text" name="category"
+                   placeholder="Category (optional)">
+
+            <input type="date" name="due_date">
+
+            <select name="priority">
+                <option value="Low">Low Priority</option>
+                <option value="Medium" selected>Medium Priority</option>
+                <option value="High">High Priority</option>
+            </select>
+        </div>
+
+        <button type="submit">+ Add Task</button>
+    </form>
+
+    <div class="task-list">
+        <h3>Your Task List</h3>
+
+        {% if tasks %}
+            {% for task in tasks %}
+                <article class="task-item">
+                    <div>
+                        <h4>{{ task.title }}</h4>
+                        {% if task.subject %}
+                            <p>{{ task.subject }}</p>
+                        {% endif %}
+                        <span>{{ task.priority }} Priority</span>
+                        {% if task.due_date %}
+                            <span>Due: {{ task.due_date }}</span>
+                        {% endif %}
+                    </div>
+
+                    <span class="task-status">
+                        {{ task.status }}
+                    </span>
+                    {% if task.status != "Completed" %}
+    <form action="{{ url_for('complete_task', task_id=task.id) }}"
+          method="POST">
+        <button type="submit">✓ Mark Complete</button>
+    </form>
+{% endif %}
+                </article>
+            {% endfor %}
+        {% else %}
+            <p class="empty-tasks">
+                No tasks yet. Add your first task above! 🌱
+            </p>
+        {% endif %}
+    </div>
+</section>
+
+
+        <section class="stats" data-view="dashboard">
+            <article class="stat-card">
+                <p>Total focus time</p>
+                <h2>{{ total_minutes }} <small>min</small></h2>
+            </article>
+
+            <article class="stat-card">
+                <p>Growth points</p>
+                <h2>{{ points }}</h2>
+            </article>
+
+            <article class="stat-card">
+                <p>Recent sessions</p>
+                <h2>{{ sessions|length }}</h2>
+            </article>
+        </section>
+
+        <section class="panel focus-coach-panel" data-view="coach" aria-labelledby="coach-title">
+            <p class="eyebrow">YOUR REFLECTION SPACE · AI-POWERED</p>
+            <h2 id="coach-title">🧠 Focus Coach</h2>
+            <p>Reflect on a study session. Get a gentle observation and one practical next step.</p>
+            <label for="coach-reflection">What went well, and what made focusing difficult?</label>
+            <textarea id="coach-reflection" rows="4" maxlength="1800"
+                placeholder="Example: I planned to study Python for 25 minutes, but kept checking messages. I understood loops once I started."></textarea>
+            <div class="coach-actions">
+                <button type="button" id="coach-submit">Get my reflection ✨</button>
+                <span class="coach-privacy">Only sent when you press the button. Don't include passwords or private details.</span>
+            </div>
+            <p id="coach-status" class="coach-status" role="status" aria-live="polite"></p>
+            <div id="coach-answer" class="coach-answer" hidden></div>
+        </section>
+
+       <section class="content-grid" data-view="achievements">
+            <div class="panel">
+                <p class="eyebrow">YOUR XP JOURNEY</p>
+                <h2>Level {{ level }} 🌟</h2>
+                <p>{{ points }} total XP · {{ level_xp }}/100 XP in this level</p>
+                <div class="progress-track" role="progressbar" aria-valuenow="{{ level_xp }}" aria-valuemin="0" aria-valuemax="100" aria-label="Level progress">
+                    <div class="progress-fill" style="width: {{ level_xp }}%"></div>
+                </div>
+                <p>{{ xp_to_next_level }} XP until Level {{ level + 1 }}</p>
+            </div>
+            <div class="panel">
+                <p class="eyebrow">ACHIEVEMENTS</p>
+                <h2>{{ unlocked_achievements }}/{{ achievements|length }} badges unlocked 🏆</h2>
+                <div class="session-list">
+                    {% for badge in achievements %}
+                    <article class="session-item" aria-label="{{ badge.name }}: {{ 'unlocked' if badge.unlocked else 'locked' }}">
+                        <div>
+                            <h3>{{ badge.emoji }} {{ badge.name }} {% if badge.unlocked %}✓{% else %}🔒{% endif %}</h3>
+                            <p>{{ badge.description }}</p>
+                        </div>
+                        <div class="session-points"><strong>{{ 'Unlocked' if badge.unlocked else 'Locked' }}</strong></div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        {% if not legacy_imported %}
+        <section class="panel">
+            <p class="eyebrow">RETURNING GROWLY USER?</p>
+            <h2>Bring your old garden into this account 🌿</h2>
+            <p>This imports the sessions in the included legacy backup (currently 64 points across 3 sessions). It only runs once for this account. If those sessions are not yours, skip this.</p>
+            <form action="{{ url_for('import_legacy') }}" method="post">
+                <button type="submit">Import my old Growly progress</button>
+            </form>
+        </section>
+        {% endif %}
+
+        <!------focustimer-->
+        
+<!-- FOCUSLOG TIMER -->
+<section class="timer-card" id="focus-timer" data-view="timer">
+    
+<!-- FOCUSLOG STREAK CARD -->
+<section class="streak-card">
+    <p class="eyebrow">YOUR CONSISTENCY</p>
+    <h2>Little steps, every day 🌱</h2>
+
+    <div class="streak-stats">
+        <div class="streak-stat">
+            <span>🔥</span>
+            <div>
+                <p>Current streak</p>
+                <h3>
+    {{ current_streak }}
+    day{% if current_streak != 1 %}s{% endif %}
+</h3>
+            </div>
+        </div>
+
+        <div class="streak-stat">
+            <span>🏆</span>
+            <div>
+                <p>Personal best</p>
+                <h3>
+    {{ longest_streak }}
+    day{% if longest_streak != 1 %}s{% endif %}
+</h3>
+            </div>
+        </div>
+    </div>
+
+    <p class="streak-message">
+        {% if current_streak == 0 %}
+            Ready to begin a new streak? Log a focus session today. 🌿
+        {% elif current_streak == 1 %}
+            You've shown up! One day at a time. 💚
+        {% else %}
+            Amazing consistency! You've shown up for
+            {{ current_streak }} consecutive days. ✨
+        {% endif %}
+    </p>
+</section>
+<!-- END FOCUSLOG STREAK CARD -->
+
+
+    <div class="timer-heading">
+        <p class="eyebrow">YOUR FOCUS SPACE</p>
+        <h2>Time to grow 🌱</h2>
+        <p>One focused session at a time.</p>
+    </div>
+
+    <div class="timer-modes">
+        <button type="button" class="mode-btn active"
+                data-mode="countdown">
+            Countdown
+        </button>
+
+        <button type="button" class="mode-btn"
+                data-mode="stopwatch">
+            Stopwatch
+        </button>
+    </div>
+
+    <label for="timer-activity">
+        What are you focusing on?
+    </label>
+
+    <input id="timer-activity" type="text"
+           maxlength="100"
+           placeholder="e.g. Python practice"
+           value="Study session">
+
+    <div id="duration-picker">
+        <label for="timer-duration">
+            Choose your duration
+        </label>
+
+        <select id="timer-duration">
+            <option value="15">15 minutes</option>
+            <option value="25" selected>25 minutes</option>
+            <option value="45">45 minutes</option>
+            <option value="60">60 minutes</option>
+        </select>
+    </div>
+
+    <div class="timer-display" id="timer-display"
+         role="timer" aria-label="Time remaining">
+        25:00
+    </div>
+
+    <p class="timer-status" id="timer-status"
+       aria-live="polite">
+        Ready when you are ✨
+    </p>
+
+    <div class="timer-controls">
+        <button type="button" id="timer-start">
+            Start focus
+        </button>
+
+        <button type="button" id="timer-pause" disabled>
+            Pause
+        </button>
+
+        <button type="button" id="timer-finish" disabled>
+            Finish &amp; Save
+        </button>
+
+        <button type="button" id="timer-reset">
+            Reset
+        </button>
+    </div>
+
+    <p class="timer-note">
+        Focus at your own pace. Every completed session counts.
+    </p>
+
+    <form id="timer-save-form" action="/log"
+          method="POST" hidden>
+        <input type="hidden" name="activity"
+               id="save-activity">
+
+        <input type="hidden" name="minutes"
+               id="save-minutes">
+    </form>
+
+</section>
+<!-- END FOCUSLOG TIMER -->
+
+
+        <section class="content-grid" data-view="progress">
+            <div class="panel">
+                <p class="eyebrow">TIME TO FOCUS</p>
+                <h2>Log a session</h2>
+                <p>Show up, focus, and let your progress grow.</p>
+
+                <form action="/log" method="POST">
+                    <label for="activity">What did you work on?</label>
+                    <input
+                        type="text"
+                        id="activity"
+                        name="activity"
+                        placeholder="e.g. Python practice"
+                        maxlength="100"
+                        required
+                    >
+
+                    <label for="minutes">Focus duration (minutes)</label>
+                    <input
+                        type="number"
+                        id="minutes"
+                        name="minutes"
+                        min="1"
+                        max="1440"
+                        placeholder="25"
+                        required
+                    >
+
+                    <button type="submit">Log my focus ✨</button>
+                </form>
+            </div>
+
+            <div class="panel">
+                <p class="eyebrow">YOUR JOURNEY</p>
+                <h2>Recent sessions</h2>
+
+                {% if sessions %}
+                    <div class="session-list">
+                        {% for session in sessions %}
+                            <article class="session-item">
+                                <div>
+                                    <h3>{{ session.activity }}</h3>
+                                    <p>{{ session.date }}</p>
+                                </div>
+                                <div class="session-points">
+                                    <strong>+{{ session.points }}</strong>
+                                    <small>{{ session.minutes }} min</small>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <span>🌿</span>
+                        <h3>Your journey starts here</h3>
+                        <p>Log your first session to see it appear here.</p>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="panel analytics-panel">
+    <p class="eyebrow">YOUR PERFORMANCE</p>
+    <h2>My Analytics</h2>
+    <p>Explore your focus patterns and track your progress over time.</p>
+            <section class="weekly-focus-card" data-view="progress">
+
+    <div class="weekly-focus-header">
+        <div>
+            <p class="eyebrow">YOUR CONSISTENCY</p>
+            <h2>Weekly Focus</h2>
+            <p>Your focused minutes, day by day.</p>
+        </div>
+    </div>
+
+    <div class="weekly-focus-grid">
+        {% for day in weekly_focus %}
+        <div class="weekly-focus-day">
+            <div class="weekly-focus-bar-area">
+                <div class="weekly-focus-bar"
+                     style="height: {{ (day.minutes / ([weekly_focus | map(attribute='minutes') | max, 1] | max)) * 100 }}%">
+                </div>
+            </div>
+
+            <strong>{{ day.minutes }}</strong>
+            <span>{{ day.day }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <section class="monthly-overview-card">
+    <div class="monthly-header">
+        <p class="eyebrow">YOUR MONTHLY PROGRESS</p>
+        <h2>Monthly Overview</h2>
+        <p>A look at the effort you've put in this month.</p>
+    </div>
+
+    <div class="monthly-stats-grid">
+        <article class="monthly-stat">
+            <span>⏱️</span>
+            <p>Total Focus Time</p>
+            <h3>{{ monthly_focus_minutes }} min</h3>
+        </article>
+
+        <article class="monthly-stat">
+            <span>📚</span>
+            <p>Study Sessions</p>
+            <h3>{{ monthly_session_count }}</h3>
+        </article>
+
+        <article class="monthly-stat">
+            <span>🌱</span>
+            <p>Daily Average</p>
+            <h3>{{ monthly_daily_average }} min</h3>
+        </article>
+    </div>
+</section>
+<section class="focus-insights-card">
+    <p class="eyebrow">YOUR FOCUS PATTERNS</p>
+    <h2>Focus Insights</h2>
+    <p class="insights-subtitle">
+        A little more insight into your study habits.
+    </p>
+
+    <div class="insights-grid">
+        <article class="insight-item">
+            <span>🏆</span>
+            <p>Most Productive Day</p>
+            <h3>{{ most_productive_day }}</h3>
+        </article>
+
+        <article class="insight-item">
+            <span>📚</span>
+            <p>Total Sessions</p>
+            <h3>{{ monthly_session_count }}</h3>
+        </article>
+
+        <article class="insight-item">
+            <span>⏱️</span>
+            <p>Average Session</p>
+            <h3>{{ average_session_duration }} min</h3>
+        </article>
+    </div>
+</section>
+
+
+</div>
+        </section>
+
+        <footer>
+            <p>Made with curiosity and consistency 🌱</p>
+            <p>FocusLog · Powered by Growly</p>
+        </footer>
+    </main>
+    
+
+<script>
+(() => {
+    const button = document.getElementById("coach-submit");
+    const input = document.getElementById("coach-reflection");
+    const status = document.getElementById("coach-status");
+    const answer = document.getElementById("coach-answer");
+    if (!button || !input || !status || !answer) return;
+
+    button.addEventListener("click", async () => {
+        const reflection = input.value.trim();
+        if (!reflection) {
+            status.textContent = "Write a short reflection first.";
+            input.focus();
+            return;
+        }
+        button.disabled = true;
+        status.textContent = "Your coach is thinking… 🌱";
+        answer.hidden = true;
+        answer.textContent = "";
+        try {
+            const response = await fetch("/api/focus-coach", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({reflection})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "The coach couldn't respond. Please try again.");
+            answer.textContent = data.answer;
+            answer.hidden = false;
+            status.textContent = "A small step is still progress. 💚";
+        } catch (error) {
+            status.textContent = error.message || "Something went wrong. Please try again.";
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+</script>
+
+<script>
+(() => {
+    const $ = id => document.getElementById(id);
+
+    const display = $("timer-display");
+    const status = $("timer-status");
+    const activity = $("timer-activity");
+    const duration = $("timer-duration");
+    const durationPicker = $("duration-picker");
+
+    const startBtn = $("timer-start");
+    const pauseBtn = $("timer-pause");
+    const finishBtn = $("timer-finish");
+    const resetBtn = $("timer-reset");
+
+    const saveForm = $("timer-save-form");
+    const modeButtons = document.querySelectorAll(".mode-btn");
+
+    let mode = "countdown";
+    let running = false;
+    let finished = false;
+    let startedAt = 0;
+    let elapsedBeforePause = 0;
+    let targetSeconds = Number(duration.value) * 60;
+    let interval = null;
+
+    function formatTime(seconds) {
+        seconds = Math.max(0, Math.floor(seconds));
+
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+
+        return String(minutes).padStart(2, "0") + ":" +
+               String(remainder).padStart(2, "0");
+    }
+
+    function elapsedSeconds() {
+        return elapsedBeforePause +
+            (running ? (Date.now() - startedAt) / 1000 : 0);
+    }
+
+    function render() {
+        const elapsed = elapsedSeconds();
+
+        if (mode === "countdown") {
+            const remaining = Math.max(
+                0, targetSeconds - Math.floor(elapsed)
+            );
+
+            display.textContent = formatTime(remaining);
+
+            if (running && elapsed >= targetSeconds) {
+                completeSession(true);
+                return;
+            }
+        } else {
+            display.textContent = formatTime(elapsed);
+        }
+
+        if (running) {
+            interval = setTimeout(render, 200);
+        }
+    }
+
+    function playCompletionSound() {
+        try {
+            const AudioContext =
+                window.AudioContext || window.webkitAudioContext;
+
+            if (!AudioContext) return;
+
+            const context = new AudioContext();
+
+            [660, 880].forEach((frequency, index) => {
+                const oscillator = context.createOscillator();
+                const gain = context.createGain();
+                const start = context.currentTime + index * 0.22;
+
+                oscillator.type = "sine";
+                oscillator.frequency.value = frequency;
+                oscillator.connect(gain);
+                gain.connect(context.destination);
+
+                gain.gain.setValueAtTime(0.001, start);
+                gain.gain.exponentialRampToValueAtTime(
+                    0.12, start + 0.03
+                );
+                gain.gain.exponentialRampToValueAtTime(
+                    0.001, start + 0.18
+                );
+
+                oscillator.start(start);
+                oscillator.stop(start + 0.2);
+            });
+
+            setTimeout(() => context.close(), 1000);
+        } catch (error) {
+            console.warn("Completion sound unavailable.", error);
+        }
+    }
+
+    function start() {
+        if (running || finished) return;
+
+        if (!activity.value.trim()) {
+            status.textContent = "Enter an activity first.";
+            activity.focus();
+            return;
+        }
+
+        if (mode === "countdown" && elapsedBeforePause === 0) {
+            targetSeconds = Number(duration.value) * 60;
+        }
+
+        try {
+            const AudioContext =
+                window.AudioContext || window.webkitAudioContext;
+
+            if (AudioContext && !window.focusLogAudio) {
+                window.focusLogAudio = new AudioContext();
+            }
+
+            window.focusLogAudio?.resume();
+        } catch (error) {
+            // Timer still works without audio.
+        }
+
+        running = true;
+        startedAt = Date.now();
+
+        startBtn.disabled = true;
+        startBtn.textContent = "Running…";
+        pauseBtn.disabled = false;
+        finishBtn.disabled = false;
+        duration.disabled = true;
+        activity.disabled = true;
+
+        status.textContent = "You're doing great. Keep going 🌿";
+        render();
+    }
+
+    function pause() {
+        if (!running) return;
+
+        elapsedBeforePause += (Date.now() - startedAt) / 1000;
+        running = false;
+
+        clearTimeout(interval);
+        interval = null;
+
+        startBtn.disabled = false;
+        startBtn.textContent = "Resume focus";
+        pauseBtn.disabled = true;
+        finishBtn.disabled = false;
+
+        status.textContent = "Paused. Resume when you're ready.";
+        render();
+    }
+
+    function completeSession(automatic = false) {
+        if (finished) return;
+
+        if (running) {
+            elapsedBeforePause += (Date.now() - startedAt) / 1000;
+        }
+
+        running = false;
+        finished = true;
+
+        clearTimeout(interval);
+        interval = null;
+
+        startBtn.disabled = true;
+        pauseBtn.disabled = true;
+        finishBtn.disabled = true;
+        duration.disabled = true;
+        activity.disabled = true;
+
+        const seconds =
+            mode === "countdown" && automatic
+                ? targetSeconds
+                : Math.floor(elapsedBeforePause);
+
+        const minutes = Math.floor(seconds / 60);
+
+        display.textContent = "00:00";
+        playCompletionSound();
+
+        if (minutes < 1) {
+            status.textContent =
+                "Session under one minute — not saved. 🌱";
+            return;
+        }
+
+        $("save-activity").value =
+            activity.value.trim() || "Focus session";
+
+        $("save-minutes").value = minutes;
+
+        status.textContent =
+            "Session complete! Great work 🌱 Saving your progress…";
+
+        saveForm.requestSubmit();
+    }
+
+    function reset() {
+        running = false;
+        finished = false;
+
+        clearTimeout(interval);
+        interval = null;
+
+        elapsedBeforePause = 0;
+        targetSeconds = Number(duration.value) * 60;
+
+        startBtn.disabled = false;
+        startBtn.textContent = "Start focus";
+        pauseBtn.disabled = true;
+        finishBtn.disabled = true;
+        duration.disabled = false;
+        activity.disabled = false;
+
+        display.textContent = formatTime(
+            mode === "countdown" ? targetSeconds : 0
+        );
+
+        status.textContent = "Ready when you are ✨";
+    }
+
+    modeButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            if (running) return;
+
+            mode = button.dataset.mode;
+
+            modeButtons.forEach(item => {
+                const active = item === button;
+
+                item.classList.toggle("active", active);
+                item.setAttribute("aria-pressed", String(active));
+            });
+
+            durationPicker.hidden = mode === "stopwatch";
+            reset();
+        });
+    });
+
+    duration.addEventListener("change", reset);
+    startBtn.addEventListener("click", start);
+    pauseBtn.addEventListener("click", pause);
+    finishBtn.addEventListener("click", () => completeSession(false));
+    
+    resetBtn.addEventListener("click", reset);
+
+    reset();
+})();
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const navButtons = document.querySelectorAll(".nav-item");
+    const views = document.querySelectorAll("[data-view]");
+
+    function showSection(sectionName) {
+        views.forEach(view => {
+            view.hidden = view.dataset.view !== sectionName;
+        });
+
+        navButtons.forEach(button => {
+            const active = button.dataset.section === sectionName;
+
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-pressed", String(active));
+        });
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+    }
+
+    navButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            showSection(button.dataset.section);
+        });
+    });
+    document.querySelectorAll(".dashboard-view-all").forEach(button => {
+    button.addEventListener("click", () => {
+        showSection(button.dataset.section);
+    });
+});
+
+    showSection("dashboard");
+});
+</script>
+
+</body>
+</html>
