@@ -35,11 +35,6 @@
           {% endif %}
         {% endwith %}
 
-        {% if google_ready %}
-          <a class="google-button" href="{{ url_for('google_login') }}"><span class="google-g">G</span> Continue with Google</a>
-        {% else %}
-          <a class="google-button google-unconfigured" href="{{ url_for('google_login') }}"><span class="google-g">G</span> Continue with Google <small>setup needed</small></a>
-        {% endif %}
         <div class="auth-divider"><span>or use your email</span></div>
 
         <form method="post" class="auth-form">

@@ -1,6 +1,7 @@
 import os
 import json
-import sqlite3
+import psycopg
+from psycopg.rows import dict_row
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
@@ -26,7 +27,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "focuslog.db"
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
 GROWTH_STAGES = [
     (0, "Seed", "🌰"),
@@ -52,55 +53,54 @@ google = oauth.register(
 
 
 def get_db():
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not configured. Add your Neon connection string to .env.")
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row, sslmode="require")
 
 
 def init_db():
+    statements = [
+        """CREATE TABLE IF NOT EXISTS users (
+            id BIGSERIAL PRIMARY KEY,
+            username TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT,
+            google_sub TEXT UNIQUE,
+            created_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS sessions (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            activity TEXT NOT NULL,
+            minutes INTEGER NOT NULL CHECK(minutes > 0),
+            points INTEGER NOT NULL CHECK(points >= 0),
+            date TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS user_imports (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL UNIQUE,
+            imported_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS tasks (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            subject TEXT,
+            category TEXT,
+            due_date TEXT,
+            priority TEXT NOT NULL DEFAULT 'Medium',
+            status TEXT NOT NULL DEFAULT 'Pending',
+            created_at TEXT NOT NULL,
+            completed_at TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""",
+    ]
     with get_db() as db:
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE COLLATE NOCASE,
-                password_hash TEXT,
-                google_sub TEXT UNIQUE,
-                created_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                activity TEXT NOT NULL,
-                minutes INTEGER NOT NULL CHECK(minutes > 0),
-                points INTEGER NOT NULL CHECK(points >= 0),
-                date TEXT NOT NULL,
-                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-            CREATE TABLE IF NOT EXISTS user_imports (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL UNIQUE,
-                imported_at TEXT NOT NULL,
-                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-            
-            CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT,
-                subject TEXT,
-                category TEXT,
-                due_date TEXT,
-                priority TEXT NOT NULL DEFAULT 'Medium',
-                status TEXT NOT NULL DEFAULT 'Pending',
-                created_at TEXT NOT NULL,
-                completed_at TEXT,
-                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-
-        """)
+        for statement in statements:
+            db.execute(statement)
 
 
 class User(UserMixin):
@@ -115,7 +115,7 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(user_id):
     with get_db() as db:
-        row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
     return User(row) if row else None
 
 
@@ -191,16 +191,16 @@ def signup():
             try:
                 with get_db() as db:
                     cursor = db.execute(
-                        "INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                        "INSERT INTO users (username, email, password_hash, created_at) VALUES (%s, %s, %s, %s) RETURNING id",
                         (username, email, generate_password_hash(password), datetime.now().isoformat(timespec="seconds")),
                     )
-                    user_id = cursor.lastrowid
+                    user_id = cursor.fetchone()["id"]
                 with get_db() as db:
-                    row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+                    row = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
                 login_user(User(row))
                 flash("Your FocusLog garden is ready. Welcome! 🌱", "success")
                 return redirect(url_for("dashboard"))
-            except sqlite3.IntegrityError:
+            except psycopg.IntegrityError:
                 flash("An account with that email already exists. Try logging in instead.", "error")
     return render_template("auth.html", mode="signup", google_ready=bool(os.environ.get("GOOGLE_CLIENT_ID") and os.environ.get("GOOGLE_CLIENT_SECRET")))
 
@@ -213,7 +213,7 @@ def login():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         with get_db() as db:
-            row = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+            row = db.execute("SELECT * FROM users WHERE email = %s", (email,)).fetchone()
         if row and row["password_hash"] and check_password_hash(row["password_hash"], password):
             login_user(User(row), remember=request.form.get("remember") == "on")
             next_url = request.args.get("next", "")
@@ -251,19 +251,20 @@ def google_callback():
             return redirect(url_for("login"))
         with get_db() as db:
             row = db.execute(
-                "SELECT * FROM users WHERE google_sub = ? OR email = ?",
+                "SELECT * FROM users WHERE google_sub = %s OR email = %s",
                 (google_sub, email),
             ).fetchone()
             if row:
                 if not row["google_sub"]:
-                    db.execute("UPDATE users SET google_sub = ? WHERE id = ?", (google_sub, row["id"]))
-                    row = db.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
+                    db.execute("UPDATE users SET google_sub = %s WHERE id = %s", (google_sub, row["id"]))
+                    row = db.execute("SELECT * FROM users WHERE id = %s", (row["id"],)).fetchone()
             else:
                 cursor = db.execute(
-                    "INSERT INTO users (username, email, google_sub, created_at) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO users (username, email, google_sub, created_at) VALUES (%s, %s, %s, %s) RETURNING id",
                     (username, email, google_sub, datetime.now().isoformat(timespec="seconds")),
                 )
-                row = db.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+                new_user_id = cursor.fetchone()["id"]
+                row = db.execute("SELECT * FROM users WHERE id = %s", (new_user_id,)).fetchone()
         login_user(User(row))
         flash("You're signed in. Let's grow! 🌱", "success")
         return redirect(url_for("dashboard"))
@@ -286,7 +287,7 @@ def logout():
 def dashboard():
     with get_db() as db:
         rows = db.execute(
-            "SELECT activity, minutes, points, date FROM sessions WHERE user_id = ? ORDER BY id DESC",
+            "SELECT activity, minutes, points, date FROM sessions WHERE user_id = %s ORDER BY id DESC",
             (int(current_user.id),),
         ).fetchall()
     sessions = [dict(row) for row in rows]
@@ -295,7 +296,7 @@ def dashboard():
         task_rows = db.execute(
             """
             SELECT * FROM tasks
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY created_at DESC
             """,
             (int(current_user.id),)
@@ -345,11 +346,11 @@ def dashboard():
         session["date"][:10], "%Y-%m-%d"
         ).date()
 
-    day_name = session_date.strftime("%A")
+        day_name = session_date.strftime("%A")
 
-    daily_focus[day_name] = (
-        daily_focus.get(day_name, 0) + session["minutes"]
-        )
+        daily_focus[day_name] = (
+            daily_focus.get(day_name, 0) + session["minutes"]
+            )
 
     most_productive_day = (
         max(daily_focus, key=daily_focus.get)
@@ -455,7 +456,7 @@ def dashboard():
 
 def legacy_imported(user_id):
     with get_db() as db:
-        return db.execute("SELECT 1 FROM user_imports WHERE user_id = ?", (user_id,)).fetchone() is not None
+        return db.execute("SELECT 1 FROM user_imports WHERE user_id = %s", (user_id,)).fetchone() is not None
 
 
 @app.route("/import-legacy", methods=["POST"])
@@ -479,12 +480,12 @@ def import_legacy():
             if activity and 1 <= minutes <= 1440 and points >= 0:
                 clean_sessions.append((user_id, activity, minutes, points, date))
         with get_db() as db:
-            db.execute("INSERT INTO user_imports (user_id, imported_at) VALUES (?, ?)", (user_id, datetime.now().isoformat(timespec="seconds")))
-            db.executemany("INSERT INTO sessions (user_id, activity, minutes, points, date) VALUES (?, ?, ?, ?, ?)", clean_sessions)
+            db.execute("INSERT INTO user_imports (user_id, imported_at) VALUES (%s, %s)", (user_id, datetime.now().isoformat(timespec="seconds")))
+            db.executemany("INSERT INTO sessions (user_id, activity, minutes, points, date) VALUES (%s, %s, %s, %s, %s)", clean_sessions)
         flash(f"Imported {len(clean_sessions)} Growly sessions into your account! 🌱", "success")
     except FileNotFoundError:
         flash("The legacy backup file was not found. Your existing data was not changed.", "error")
-    except (ValueError, TypeError, json.JSONDecodeError, sqlite3.IntegrityError):
+    except (ValueError, TypeError, json.JSONDecodeError, psycopg.IntegrityError):
         flash("The backup could not be imported safely. No duplicate import was made.", "error")
     return redirect(url_for("dashboard"))
 
@@ -505,7 +506,7 @@ def log_session():
 
     with get_db() as db:
         db.execute(
-            "INSERT INTO sessions (user_id, activity, minutes, points, date) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO sessions (user_id, activity, minutes, points, date) VALUES (%s, %s, %s, %s, %s)",
             (int(current_user.id), activity, minutes, minutes, datetime.now().strftime("%Y-%m-%d %H:%M")),
         )
     return redirect(url_for("dashboard"))
@@ -535,7 +536,7 @@ def add_task():
             INSERT INTO tasks
             (user_id, title, description, subject, category,
              due_date, priority, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'Pending', %s)
             """,
             (
                 int(current_user.id),
@@ -558,7 +559,7 @@ def complete_task(task_id):
         task = db.execute(
             """
             SELECT id FROM tasks
-            WHERE id = ? AND user_id = ?
+            WHERE id = %s AND user_id = %s
             """,
             (task_id, int(current_user.id))
         ).fetchone()
@@ -571,8 +572,8 @@ def complete_task(task_id):
             """
             UPDATE tasks
             SET status = 'Completed',
-                completed_at = ?
-            WHERE id = ? AND user_id = ?
+                completed_at = %s
+            WHERE id = %s AND user_id = %s
             """,
             (
                 datetime.now().strftime("%Y-%m-%d %H:%M"),
