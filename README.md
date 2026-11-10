@@ -42,8 +42,6 @@ FocusLog connects its frontend, backend, database, and AI service.
 
 ## 📸 Screenshots
 
-Application screenshots will be added here.
-## 📸 Screenshots
 
 ### Dashboard
 ![FocusLog Dashboard](screenshots/dashboard.png)
